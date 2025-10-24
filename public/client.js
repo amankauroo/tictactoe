@@ -52,6 +52,19 @@ function createBoard() {
   }
 }
 
+// client-side script
+const resetBtn = document.createElement("button");
+resetBtn.textContent = "Reset Game";
+resetBtn.onclick = () => socket.emit("resetGame");
+document.body.appendChild(resetBtn);
+
+// when the server sends reset event
+socket.on("gameReset", () => {
+  cells.forEach((cell) => {
+    cell.textContent = "";
+  });
+});
+
 // Chat
 sendBtn.onclick = () => {
   const message = messageInput.value.trim();

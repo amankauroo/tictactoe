@@ -87,6 +87,9 @@ io.on("connection", (socket) => {
   socket.on("sendMessage", ({ roomId, message, name }) => {
     io.to(roomId).emit("chatMessage", { name, message });
   });
+  socket.on("resetGame", () => {
+    io.emit("gameReset");
+  });
 
   socket.on("disconnect", () => {
     console.log(`❌ ${socket.id} disconnected`);
