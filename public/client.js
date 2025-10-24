@@ -13,6 +13,7 @@ let symbol = "";
 let roomId = "";
 let playerName = "";
 
+// Join room
 joinBtn.onclick = () => {
   roomId = roomInput.value.trim();
   playerName = nameInput.value.trim();
@@ -20,26 +21,40 @@ joinBtn.onclick = () => {
   socket.emit("joinRoom", roomId, playerName);
 };
 
+// After joining
 socket.on("joined", (data) => {
   symbol = data.symbol;
   roomId = data.roomId;
-  statusEl.textContent = `You are ${symbol} in room ${roomId}`;
+  statusEl.textContent = `Joined room ${roomId}. You are ${symbol}`;
   createBoard();
 });
 
+// Room full
 socket.on("roomFull", () => alert("Room full! Try another ID."));
 
+// Update board
 socket.on("updateBoard", (board, winner) => {
   for (let i = 0; i < 9; i++) {
-    boardEl.children[i].textContent = board[i];
+    if (boardEl.children[i]) boardEl.children[i].textContent = board[i];
   }
-  if (winner) statusEl.textContent = `${winner} wins!`;
+  if (winner) {
+    statusEl.textContent = `${winner} wins!`;
+  } else {
+    statusEl.textContent = `Your symbol: ${symbol} | Turn: ${
+      board.filter((v) => v).length % 2 === 0 ? "X" : "O"
+    }`;
+  }
 });
 
+// Update player list
 socket.on("playerList", (players) => {
-  statusEl.textContent = `Players: ${players.join(" vs ")} (${symbol})`;
+  const info = players.length
+    ? players.join(" vs ")
+    : "Waiting for opponent...";
+  statusEl.textContent = `${info} — You are ${symbol}`;
 });
 
+// Create board
 function createBoard() {
   boardEl.innerHTML = "";
   for (let i = 0; i < 9; i++) {
@@ -52,17 +67,22 @@ function createBoard() {
   }
 }
 
-// client-side script
+// Add reset button
 const resetBtn = document.createElement("button");
 resetBtn.textContent = "Reset Game";
-resetBtn.onclick = () => socket.emit("resetGame");
+resetBtn.classList.add("reset-btn");
+resetBtn.onclick = () => {
+  if (!roomId) return alert("Join a room first!");
+  socket.emit("resetGame", roomId);
+};
 document.body.appendChild(resetBtn);
 
-// when the server sends reset event
+// When server resets game
 socket.on("gameReset", () => {
-  cells.forEach((cell) => {
-    cell.textContent = "";
-  });
+  for (let i = 0; i < 9; i++) {
+    if (boardEl.children[i]) boardEl.children[i].textContent = "";
+  }
+  statusEl.textContent = `New game started. You are ${symbol}`;
 });
 
 // Chat
