@@ -1,102 +1,67 @@
 const socket = io();
 
-const nameInput = document.getElementById("nameInput");
-const roomInput = document.getElementById("roomInput");
+let room = null;
+let symbol = null;
+
+const boardDiv = document.getElementById("board");
 const joinBtn = document.getElementById("joinBtn");
-const boardEl = document.getElementById("board");
-const statusEl = document.getElementById("status");
-const messagesEl = document.getElementById("messages");
-const messageInput = document.getElementById("messageInput");
+const roomInput = document.getElementById("roomInput");
+const roomInfo = document.getElementById("roomInfo");
+const turnInfo = document.getElementById("turnInfo");
+const resetBtn = document.getElementById("resetBtn");
+const gameDiv = document.getElementById("game");
+const messages = document.getElementById("messages");
+const chatInput = document.getElementById("chatInput");
 const sendBtn = document.getElementById("sendBtn");
 
-let symbol = "";
-let roomId = "";
-let playerName = "";
-
-// Join room
 joinBtn.onclick = () => {
-  roomId = roomInput.value.trim();
-  playerName = nameInput.value.trim();
-  if (!roomId || !playerName) return alert("Enter both name and room ID!");
-  socket.emit("joinRoom", roomId, playerName);
+  room = roomInput.value.trim();
+  if (!room) return alert("Enter a room name");
+  socket.emit("joinRoom", room);
 };
 
-// After joining
-socket.on("joined", (data) => {
+socket.on("joinedRoom", (data) => {
+  room = data.room;
   symbol = data.symbol;
-  roomId = data.roomId;
-  statusEl.textContent = `Joined room ${roomId}. You are ${symbol}`;
-  createBoard();
+  roomInfo.textContent = `Joined Room: ${room} | You are: ${symbol}`;
+  gameDiv.classList.remove("hidden");
+  initBoard();
 });
 
-// Room full
-socket.on("roomFull", () => alert("Room full! Try another ID."));
+socket.on("roomFull", () => alert("Room is full"));
 
-// Update board
-socket.on("updateBoard", (board, winner) => {
-  for (let i = 0; i < 9; i++) {
-    if (boardEl.children[i]) boardEl.children[i].textContent = board[i];
-  }
-  if (winner) {
-    statusEl.textContent = `${winner} wins!`;
-  } else {
-    statusEl.textContent = `Your symbol: ${symbol} | Turn: ${
-      board.filter((v) => v).length % 2 === 0 ? "X" : "O"
-    }`;
-  }
-});
-
-// Update player list
-socket.on("playerList", (players) => {
-  const info = players.length
-    ? players.join(" vs ")
-    : "Waiting for opponent...";
-  statusEl.textContent = `${info} — You are ${symbol}`;
-});
-
-// Create board
-function createBoard() {
-  boardEl.innerHTML = "";
+function initBoard() {
+  boardDiv.innerHTML = "";
   for (let i = 0; i < 9; i++) {
     const cell = document.createElement("div");
     cell.classList.add("cell");
-    cell.addEventListener("click", () => {
-      socket.emit("makeMove", { roomId, index: i });
-    });
-    boardEl.appendChild(cell);
+    cell.addEventListener("click", () => makeMove(i));
+    boardDiv.appendChild(cell);
   }
 }
 
-// Add reset button
-const resetBtn = document.createElement("button");
-resetBtn.textContent = "Reset Game";
-resetBtn.classList.add("reset-btn");
-resetBtn.onclick = () => {
-  if (!roomId) return alert("Join a room first!");
-  socket.emit("resetGame", roomId);
-};
-document.body.appendChild(resetBtn);
+function makeMove(index) {
+  socket.emit("makeMove", { room, index, symbol });
+}
 
-// When server resets game
-socket.on("gameReset", () => {
-  for (let i = 0; i < 9; i++) {
-    if (boardEl.children[i]) boardEl.children[i].textContent = "";
-  }
-  statusEl.textContent = `New game started. You are ${symbol}`;
+socket.on("updateBoard", ({ board, turn }) => {
+  const cells = boardDiv.querySelectorAll(".cell");
+  board.forEach((v, i) => (cells[i].textContent = v || ""));
+  turnInfo.textContent = `Turn: ${turn}`;
 });
 
-// Chat
+resetBtn.onclick = () => socket.emit("resetGame", room);
+
 sendBtn.onclick = () => {
-  const message = messageInput.value.trim();
-  if (message) {
-    socket.emit("sendMessage", { roomId, message, name: playerName });
-    messageInput.value = "";
-  }
+  const msg = chatInput.value.trim();
+  if (!msg) return;
+  socket.emit("sendChat", { room, message: `${symbol}: ${msg}` });
+  chatInput.value = "";
 };
 
-socket.on("chatMessage", ({ name, message }) => {
+socket.on("chatMessage", (msg) => {
   const div = document.createElement("div");
-  div.textContent = `${name}: ${message}`;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  div.textContent = msg;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
 });
